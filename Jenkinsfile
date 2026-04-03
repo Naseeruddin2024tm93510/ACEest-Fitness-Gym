@@ -13,9 +13,15 @@ pipeline {
                 echo 'Setting up Python virtual environment and installing dependencies...'
                 // Using bat since you are on Windows PowerShell/CMD
                 bat '''
-                    python -m venv venv
+                    if not exist "venv\\Scripts\\activate.bat" (
+                        echo "Creating new virtual environment..."
+                        python -m venv venv
+                    ) else (
+                        echo "Virtual environment already exists, skipping creation..."
+                    )
                     call venv\\Scripts\\activate
-                    pip install -r requirements.txt
+                    echo "Installing dependencies..."
+                    pip install -r requirements.txt --disable-pip-version-check
                     echo 'Running Pytest...'
                     python -m pytest tests/ -v
                 '''
@@ -24,8 +30,11 @@ pipeline {
 
         stage('Verify Docker Build') {
             steps {
-                echo 'Verifying that Docker Compose builds successfully...'
-                bat 'docker compose build'
+                echo 'Verifying that Docker Compose builds successfully (using parallel BuildKit cache)...'
+                bat '''
+                    set DOCKER_BUILDKIT=1
+                    docker compose build --parallel
+                '''
             }
         }
 
@@ -33,6 +42,7 @@ pipeline {
             // Only trigger deployment if we are building the main branch
             when { branch 'main' }
             steps {
+                input message: 'All tests passed. Do you want to deploy to the Production EC2 Server?', ok: 'Deploy to Production'
                 echo 'Connecting to EC2 instance and deploying latest version...'
                 
                 // Uses the Jenkins "SSH Agent Plugin" or "Credentials Binding Plugin"
