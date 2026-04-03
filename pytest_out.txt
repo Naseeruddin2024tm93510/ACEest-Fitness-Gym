@@ -1,0 +1,12 @@
+============================= test session starts =============================
+platform win32 -- Python 3.14.3, pytest-7.4.0, pluggy-1.6.0 -- D:\M. Tech\Sem 3\Introduction to DevOps\Assignment\ACEest Fitness & Gym\ACEest-Fitness-Gym\venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: D:\M. Tech\Sem 3\Introduction to DevOps\Assignment\ACEest Fitness & Gym\ACEest-Fitness-Gym
+configfile: pytest.ini
+plugins: cov-4.1.0
+collecting ... collected 2 items
+
+tests/test_client_api.py::test_get_clients PASSED                        [ 50%]
+tests/test_client_service.py::test_create_and_fetch_clients PASSED       [100%]
+
+============================== 2 passed in 0.13s ==============================
