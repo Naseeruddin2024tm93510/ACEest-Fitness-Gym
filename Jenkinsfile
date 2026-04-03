@@ -51,7 +51,7 @@ pipeline {
                         echo "Deploying to EC2 via SSH..."
                         chmod 400 "$SSH_KEY"
                         # Using ssh with strict host key checking disabled for CI
-                        ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ec2-user@YOUR_EC2_PUBLIC_IP \
+                        ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ec2-user@16.16.56.150 \
                             "cd ACEest-Fitness-Gym && git pull origin main && docker-compose down && docker-compose up --build -d"
                     '''
                 }
