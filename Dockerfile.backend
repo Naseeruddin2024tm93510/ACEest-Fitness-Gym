@@ -1,0 +1,19 @@
+# Backend Flask API Container
+FROM python:3.10-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY app/ app/
+COPY run.py .
+
+# Create persistent data directory
+RUN mkdir -p /data
+
+ENV DB_DIR=/data
+
+EXPOSE 5000
+
+CMD ["python", "run.py"]

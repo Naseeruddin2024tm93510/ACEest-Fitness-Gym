@@ -1,0 +1,43 @@
+============================= test session starts =============================
+platform win32 -- Python 3.14.3, pytest-7.4.0, pluggy-1.6.0 -- D:\M. Tech\Sem 3\Introduction to DevOps\Assignment\ACEest Fitness & Gym\ACEest-Fitness-Gym\venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: D:\M. Tech\Sem 3\Introduction to DevOps\Assignment\ACEest Fitness & Gym\ACEest-Fitness-Gym
+configfile: pytest.ini
+plugins: cov-4.1.0
+collecting ... collected 2 items
+
+tests/test_client_api.py::test_get_clients FAILED                        [ 50%]
+tests/test_client_service.py::test_create_and_fetch_clients PASSED       [100%]
+
+================================== FAILURES ===================================
+______________________________ test_get_clients _______________________________
+
+    def test_get_clients():
+        app = create_app()
+>       client = app.test_client()
+
+tests\test_client_api.py:6: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+venv\Lib\site-packages\flask\app.py:950: in test_client
+    return cls(  # type: ignore
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <FlaskClient <Flask 'app'>>
+args = (<Flask 'app'>, <class 'flask.wrappers.Response'>)
+kwargs = {'use_cookies': True}
+
+    def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.preserve_context = False
+        self._new_contexts: list[t.ContextManager[t.Any]] = []
+        self._context_stack = ExitStack()
+        self.environ_base = {
+            "REMOTE_ADDR": "127.0.0.1",
+>           "HTTP_USER_AGENT": f"werkzeug/{werkzeug.__version__}",
+        }
+E       AttributeError: module 'werkzeug' has no attribute '__version__'
+
+venv\Lib\site-packages\flask\testing.py:118: AttributeError
+=========================== short test summary info ===========================
+FAILED tests/test_client_api.py::test_get_clients - AttributeError: module 'w...
+========================= 1 failed, 1 passed in 0.20s =========================

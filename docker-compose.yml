@@ -1,0 +1,36 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: aceest-backend
+    ports:
+      - "5000:5000"
+    volumes:
+      - db-data:/data
+    environment:
+      - DB_DIR=/data
+    networks:
+      - aceest-network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: aceest-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - aceest-network
+
+networks:
+  aceest-network:
+    driver: bridge
+
+volumes:
+  db-data:
+    driver: local
