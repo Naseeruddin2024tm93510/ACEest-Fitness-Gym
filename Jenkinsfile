@@ -32,7 +32,7 @@ pipeline {
                 echo 'Verifying that Docker Compose builds successfully (using parallel BuildKit cache)...'
                 sh '''
                     export DOCKER_BUILDKIT=1
-                    docker compose build --parallel
+                    docker-compose build --parallel
                 '''
             }
         }
@@ -52,7 +52,7 @@ pipeline {
                         chmod 400 "$SSH_KEY"
                         # Using ssh with strict host key checking disabled for CI
                         ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ec2-user@YOUR_EC2_PUBLIC_IP \
-                            "cd ACEest-Fitness-Gym && git pull origin main && docker compose down && docker compose up --build -d"
+                            "cd ACEest-Fitness-Gym && git pull origin main && docker-compose down && docker-compose up --build -d"
                     '''
                 }
             }
