@@ -28,6 +28,26 @@ pipeline {
                 bat 'docker compose build'
             }
         }
+
+        stage('Deploy to AWS EC2') {
+            // Only trigger deployment if we are building the main branch
+            when { branch 'main' }
+            steps {
+                echo 'Connecting to EC2 instance and deploying latest version...'
+                
+                // Uses the Jenkins "SSH Agent Plugin" or "Credentials Binding Plugin"
+                // You will need to add your EC2 .pem key to Jenkins credentials with ID 'ec2-ssh-key'
+                withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY')]) {
+                    // Update EC2_USER and EC2_HOST with your actual details
+                    bat '''
+                        echo "Deploying to EC2 via SSH..."
+                        
+                        :: Using ssh with strict host key checking disabled for CI
+                        ssh -i "%SSH_KEY%" -o StrictHostKeyChecking=no ec2-user@YOUR_EC2_PUBLIC_IP "cd ACEest-Fitness-Gym && git pull origin main && docker compose down && docker compose up --build -d"
+                    '''
+                }
+            }
+        }
     }
     
     post {
