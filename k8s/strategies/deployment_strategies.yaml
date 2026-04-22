@@ -1,0 +1,93 @@
+# Blue-Green Deployment Strategy
+# Switching is done by updating the service selector label: env: green or env: blue
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aceest-fitness-blue
+  namespace: production
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: aceest-fitness
+      env: blue
+  template:
+    metadata:
+      labels:
+        app: aceest-fitness
+        env: blue
+    spec:
+      containers:
+      - name: backend
+        image: ${DOCKER_IMAGE_BLUE}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aceest-fitness-green
+  namespace: production
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: aceest-fitness
+      env: green
+  template:
+    metadata:
+      labels:
+        app: aceest-fitness
+        env: green
+    spec:
+      containers:
+      - name: backend
+        image: ${DOCKER_IMAGE_GREEN}
+
+# Canary Deployment Strategy
+# Using NGINX Ingress annotations for traffic splitting
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aceest-fitness-canary
+  namespace: production
+  annotations:
+    nginx.ingress.kubernetes.io/canary: "true"
+    nginx.ingress.kubernetes.io/canary-weight: "10"
+spec:
+  rules:
+  - host: aceest.fitness.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: aceest-fitness-service-canary
+            port:
+              number: 80
+
+# Shadow Deployment / A/B Testing
+# Simplified representation using Ingress-based traffic shadowing or header-based routing
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aceest-fitness-ab
+  namespace: production
+  annotations:
+    nginx.ingress.kubernetes.io/canary: "true"
+    nginx.ingress.kubernetes.io/canary-by-header: "X-User-Type"
+    nginx.ingress.kubernetes.io/canary-by-header-value: "beta-tester"
+spec:
+  rules:
+  - host: aceest.fitness.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: aceest-fitness-service-beta
+            port:
+              number: 80

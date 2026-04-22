@@ -1,6 +1,15 @@
 pipeline {
     agent any
 
+    environment {
+        DOCKER_HUB_USER = 'naseeruddin2024' 
+        DOCKER_IMAGE = "${DOCKER_HUB_USER}/aceest-fitness-backend:${env.BUILD_NUMBER}"
+    }
+    
+    parameters {
+        choice(name: 'DEPLOY_STRATEGY', choices: ['RollingUpdate', 'Blue-Green', 'Canary'], description: 'Production Deployment Strategy')
+    }
+
     stages {
         stage('Checkout') {
             steps {
@@ -8,52 +17,64 @@ pipeline {
             }
         }
 
-        stage('Setup Backend & Test') {
+        stage('Build & Test') {
             steps {
-                echo 'Setting up Python virtual environment and installing dependencies...'
-                sh '''
-                    if [ ! -f "venv/bin/activate" ]; then
-                        echo "Creating new virtual environment..."
-                        python3 -m venv venv
-                    else
-                        echo "Virtual environment already exists, skipping creation..."
-                    fi
-                    . venv/bin/activate
-                    echo "Installing dependencies..."
-                    pip install -r requirements.txt --disable-pip-version-check
-                    echo "Running Pytest..."
-                    python3 -m pytest tests/ -v
+                echo 'Running CI (Build & Test) for all branches...'
+                bat '''
+                    if not exist venv (
+                        python -m venv venv
+                    )
+                    call venv\\Scripts\\activate
+                    pip install -r requirements.txt
+                    python -m pytest tests/ -v
                 '''
             }
         }
 
-        stage('Verify Docker Build') {
+        stage('Docker Push') {
+            when {
+                anyOf {
+                    branch 'staging'
+                    branch 'main'
+                }
+            }
             steps {
-                echo 'Verifying that Docker Compose builds successfully (using parallel BuildKit cache)...'
-                sh '''
-                    export DOCKER_BUILDKIT=1
-                    docker-compose build --parallel
+                script {
+                    echo "Building and pushing image for deployment: ${DOCKER_IMAGE}"
+                    // bat "docker build -t ${DOCKER_IMAGE} -f Dockerfile.backend ."
+                    // withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'U', passwordVariable: 'P')]) {
+                    //    bat "docker login -u %U% -p %P%"
+                    //    bat "docker push ${DOCKER_IMAGE}"
+                    // }
+                    echo 'Docker build/push placeholder - please configure credentials in Jenkins.'
+                }
+            }
+        }
+
+        stage('Deploy to Staging') {
+            when { branch 'staging' }
+            steps {
+                echo 'Deploying to Staging (Port 30081)...'
+                bat '''
+                    kubectl apply -f k8s/namespaces.yaml
+                    kubectl apply -f k8s/staging/deployment.yaml
                 '''
             }
         }
 
-        stage('Deploy to AWS EC2') {
-            // Only trigger deployment if we are building the main branch
+        stage('Deploy to Production') {
             when { branch 'main' }
             steps {
-                input message: 'All tests passed. Do you want to deploy to the Production EC2 Server?', ok: 'Deploy to Production'
-                echo 'Connecting to EC2 instance and deploying latest version...'
-
-                // Uses the Jenkins "SSH Agent Plugin" or "Credentials Binding Plugin"
-                // You will need to add your EC2 .pem key to Jenkins credentials with ID 'ec2-ssh-key'
-                withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY')]) {
-                    sh '''
-                        echo "Deploying to EC2 via SSH..."
-                        chmod 400 "$SSH_KEY"
-                        # Using ssh with strict host key checking disabled for CI
-                        ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ec2-user@16.16.56.150 \
-                            "cd ACEest-Fitness-Gym && git pull origin main && docker-compose down && docker-compose up --build -d"
-                    '''
+                script {
+                    echo "Deploying to Production (Port 30080) using ${params.DEPLOY_STRATEGY}..."
+                    bat "kubectl apply -f k8s/namespaces.yaml"
+                    
+                    if (params.DEPLOY_STRATEGY == 'RollingUpdate') {
+                        bat "kubectl apply -f k8s/production/deployment.yaml"
+                    } else {
+                        // For other strategies, apply the template
+                        bat "kubectl apply -f k8s/strategies/deployment_strategies.yaml"
+                    }
                 }
             }
         }
@@ -61,13 +82,7 @@ pipeline {
 
     post {
         always {
-            echo 'CI Pipeline finished.'
-        }
-        success {
-            echo 'All tests passed and Docker build succeeded!'
-        }
-        failure {
-            echo 'Pipeline failed. Please check the logs.'
+            echo 'Pipeline completed.'
         }
     }
 }
