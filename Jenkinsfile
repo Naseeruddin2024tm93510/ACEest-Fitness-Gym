@@ -21,12 +21,18 @@ pipeline {
             steps {
                 echo 'Running CI (Build & Test) for all branches...'
                 bat '''
+                    set PYTHON_CMD=python
+                    where python >nul 2>nul
+                    if %ERRORLEVEL% neq 0 (
+                        set PYTHON_CMD=py
+                    )
+                    
                     if not exist venv (
-                        python -m venv venv
+                        %PYTHON_CMD% -m venv venv
                     )
                     call venv\\Scripts\\activate
                     pip install -r requirements.txt
-                    python -m pytest tests/ -v
+                    %PYTHON_CMD% -m pytest tests/ -v
                 '''
             }
         }
