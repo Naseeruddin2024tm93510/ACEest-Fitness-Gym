@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_HUB_USER = 'naseeruddin2024'
+        DOCKER_HUB_USER = 'naseeruddin786'
         BRANCH_NAME = "${env.BRANCH_NAME}"
     }
 
