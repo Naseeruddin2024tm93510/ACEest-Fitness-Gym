@@ -53,6 +53,13 @@ pipeline {
             steps {
                 script {
                     def cleanBranch = env.BRANCH_NAME.toLowerCase().replace('pr-', 'pr')
+                    echo "Safeguarding ports: Cleaning up any old containers on ${env.FRONTEND_PORT}/${env.BACKEND_PORT}..."
+                    // Kill any container currently using our target ports to prevent "Port already allocated" errors
+                    sh "docker ps -q --filter \"publish=${env.BACKEND_PORT}\" | xargs -r docker stop || true"
+                    sh "docker ps -q --filter \"publish=${env.BACKEND_PORT}\" | xargs -r docker rm || true"
+                    sh "docker ps -q --filter \"publish=${env.FRONTEND_PORT}\" | xargs -r docker stop || true"
+                    sh "docker ps -q --filter \"publish=${env.FRONTEND_PORT}\" | xargs -r docker rm || true"
+
                     echo "Deploying to branch: ${env.BRANCH_NAME} on ports ${env.FRONTEND_PORT}/${env.BACKEND_PORT}"
                     sh "FRONTEND_PORT=${env.FRONTEND_PORT} BACKEND_PORT=${env.BACKEND_PORT} BRANCH_NAME=${cleanBranch} docker-compose -p aceest-${cleanBranch} up -d --build"
                 }
