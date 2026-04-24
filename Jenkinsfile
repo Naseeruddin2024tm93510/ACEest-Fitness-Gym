@@ -13,11 +13,11 @@ pipeline {
                     if (env.BRANCH_NAME == 'main') {
                         env.FRONTEND_PORT = '3000'
                         env.BACKEND_PORT = '5000'
-                    } else if (env.BRANCH_NAME == 'staging') {
+                    } else if (env.BRANCH_NAME == 'staging' || env.BRANCH_NAME == 'develop') {
                         env.FRONTEND_PORT = '3001'
                         env.BACKEND_PORT = '5001'
                     } else {
-                        error "Unsupported branch: ${env.BRANCH_NAME}. Use main or staging."
+                        error "Unsupported branch: ${env.BRANCH_NAME}. Use main, staging, or develop."
                     }
                 }
             }
