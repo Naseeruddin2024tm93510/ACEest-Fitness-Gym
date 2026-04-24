@@ -36,8 +36,29 @@ pipeline {
                     python3 -m venv venv
                     . venv/bin/activate
                     pip install -r requirements.txt
-                    # python3 -m pytest tests/ -v  # Uncomment once tests are stable
+                    python3 -m pytest tests/ -v
                 '''
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                echo 'Running Static Code Analysis...'
+                // Assumes SonarQube is running on port 9000
+                sh 'echo "SonarQube analysis placeholder - Scanner would run here"'
+            }
+        }
+
+        stage('Docker Push to Hub') {
+            steps {
+                script {
+                    echo "Pushing images to Docker Hub..."
+                    withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'U', passwordVariable: 'P')]) {
+                        sh "docker login -u ${U} -p ${P}"
+                        sh "docker tag aceest-${env.BRANCH_NAME}-backend ${DOCKER_HUB_USER}/aceest-backend:${env.BRANCH_NAME}-${env.BUILD_NUMBER}"
+                        sh "docker push ${DOCKER_HUB_USER}/aceest-backend:${env.BRANCH_NAME}-${env.BUILD_NUMBER}"
+                    }
+                }
             }
         }
 
