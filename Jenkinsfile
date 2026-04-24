@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_HUB_USER = 'naseeruddin2024'
+        DOCKER_HUB_USER = 'naseeruddin786'
         BRANCH_NAME = "${env.BRANCH_NAME}"
     }
 
@@ -13,7 +13,7 @@ pipeline {
                     if (env.BRANCH_NAME == 'main') {
                         env.FRONTEND_PORT = '3000'
                         env.BACKEND_PORT = '5000'
-                    } else if (env.BRANCH_NAME == 'staging' || env.BRANCH_NAME == 'develop') {
+                    } else if (env.BRANCH_NAME == 'staging' || env.BRANCH_NAME == 'develop' || env.BRANCH_NAME.startsWith('PR-')) {
                         env.FRONTEND_PORT = '3001'
                         env.BACKEND_PORT = '5001'
                     } else {
@@ -36,16 +36,46 @@ pipeline {
                     python3 -m venv venv
                     . venv/bin/activate
                     pip install -r requirements.txt
-                    # python3 -m pytest tests/ -v  # Uncomment once tests are stable
+                    python3 -m pytest tests/ -v
                 '''
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                echo 'Running Static Code Analysis...'
+                // Assumes SonarQube is running on port 9000
+                sh 'echo "SonarQube analysis placeholder - Scanner would run here"'
             }
         }
 
         stage('Docker Build & Deploy') {
             steps {
                 script {
+                    def cleanBranch = env.BRANCH_NAME.toLowerCase().replace('pr-', 'pr')
+                    echo "Safeguarding ports: Cleaning up any old containers on ${env.FRONTEND_PORT}/${env.BACKEND_PORT}..."
+                    // Kill any container currently using our target ports to prevent "Port already allocated" errors
+                    sh "docker ps -q --filter \"publish=${env.BACKEND_PORT}\" | xargs -r docker stop || true"
+                    sh "docker ps -q --filter \"publish=${env.BACKEND_PORT}\" | xargs -r docker rm || true"
+                    sh "docker ps -q --filter \"publish=${env.FRONTEND_PORT}\" | xargs -r docker stop || true"
+                    sh "docker ps -q --filter \"publish=${env.FRONTEND_PORT}\" | xargs -r docker rm || true"
+
                     echo "Deploying to branch: ${env.BRANCH_NAME} on ports ${env.FRONTEND_PORT}/${env.BACKEND_PORT}"
-                    sh "docker-compose -p aceest-${env.BRANCH_NAME} up -d --build"
+                    sh "FRONTEND_PORT=${env.FRONTEND_PORT} BACKEND_PORT=${env.BACKEND_PORT} BRANCH_NAME=${cleanBranch} docker-compose -p aceest-${cleanBranch} up -d --build"
+                }
+            }
+        }
+
+        stage('Docker Push to Hub') {
+            steps {
+                script {
+                    echo "Pushing images to Docker Hub..."
+                    def cleanBranch = env.BRANCH_NAME.toLowerCase().replace('pr-', 'pr')
+                    withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'U', passwordVariable: 'P')]) {
+                        sh "docker login -u ${U} -p ${P}"
+                        sh "docker tag aceest-${cleanBranch}-backend ${DOCKER_HUB_USER}/aceest-backend:${cleanBranch}-${env.BUILD_NUMBER}"
+                        sh "docker push ${DOCKER_HUB_USER}/aceest-backend:${cleanBranch}-${env.BUILD_NUMBER}"
+                    }
                 }
             }
         }
