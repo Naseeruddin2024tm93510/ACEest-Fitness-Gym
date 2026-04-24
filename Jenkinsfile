@@ -49,6 +49,16 @@ pipeline {
             }
         }
 
+        stage('Docker Build & Deploy') {
+            steps {
+                script {
+                    def cleanBranch = env.BRANCH_NAME.toLowerCase().replace('pr-', 'pr')
+                    echo "Deploying to branch: ${env.BRANCH_NAME} on ports ${env.FRONTEND_PORT}/${env.BACKEND_PORT}"
+                    sh "FRONTEND_PORT=${env.FRONTEND_PORT} BACKEND_PORT=${env.BACKEND_PORT} BRANCH_NAME=${cleanBranch} docker-compose -p aceest-${cleanBranch} up -d --build"
+                }
+            }
+        }
+
         stage('Docker Push to Hub') {
             steps {
                 script {
@@ -59,16 +69,6 @@ pipeline {
                         sh "docker tag aceest-${cleanBranch}-backend ${DOCKER_HUB_USER}/aceest-backend:${cleanBranch}-${env.BUILD_NUMBER}"
                         sh "docker push ${DOCKER_HUB_USER}/aceest-backend:${cleanBranch}-${env.BUILD_NUMBER}"
                     }
-                }
-            }
-        }
-
-        stage('Docker Build & Deploy') {
-            steps {
-                script {
-                    def cleanBranch = env.BRANCH_NAME.toLowerCase().replace('pr-', 'pr')
-                    echo "Deploying to branch: ${env.BRANCH_NAME} on ports ${env.FRONTEND_PORT}/${env.BACKEND_PORT}"
-                    sh "FRONTEND_PORT=${env.FRONTEND_PORT} BACKEND_PORT=${env.BACKEND_PORT} BRANCH_NAME=${cleanBranch} docker-compose -p aceest-${cleanBranch} up -d --build"
                 }
             }
         }
