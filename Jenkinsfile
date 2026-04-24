@@ -53,10 +53,11 @@ pipeline {
             steps {
                 script {
                     echo "Pushing images to Docker Hub..."
+                    def cleanBranch = env.BRANCH_NAME.toLowerCase().replace('pr-', 'pr')
                     withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'U', passwordVariable: 'P')]) {
                         sh "docker login -u ${U} -p ${P}"
-                        sh "docker tag aceest-${env.BRANCH_NAME}-backend ${DOCKER_HUB_USER}/aceest-backend:${env.BRANCH_NAME}-${env.BUILD_NUMBER}"
-                        sh "docker push ${DOCKER_HUB_USER}/aceest-backend:${env.BRANCH_NAME}-${env.BUILD_NUMBER}"
+                        sh "docker tag aceest-${env.BRANCH_NAME}-backend ${DOCKER_HUB_USER}/aceest-backend:${cleanBranch}-${env.BUILD_NUMBER}"
+                        sh "docker push ${DOCKER_HUB_USER}/aceest-backend:${cleanBranch}-${env.BUILD_NUMBER}"
                     }
                 }
             }
