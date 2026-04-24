@@ -56,7 +56,7 @@ pipeline {
                     def cleanBranch = env.BRANCH_NAME.toLowerCase().replace('pr-', 'pr')
                     withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'U', passwordVariable: 'P')]) {
                         sh "docker login -u ${U} -p ${P}"
-                        sh "docker tag aceest-${env.BRANCH_NAME}-backend ${DOCKER_HUB_USER}/aceest-backend:${cleanBranch}-${env.BUILD_NUMBER}"
+                        sh "docker tag aceest-${cleanBranch}-backend ${DOCKER_HUB_USER}/aceest-backend:${cleanBranch}-${env.BUILD_NUMBER}"
                         sh "docker push ${DOCKER_HUB_USER}/aceest-backend:${cleanBranch}-${env.BUILD_NUMBER}"
                     }
                 }
@@ -66,8 +66,9 @@ pipeline {
         stage('Docker Build & Deploy') {
             steps {
                 script {
+                    def cleanBranch = env.BRANCH_NAME.toLowerCase().replace('pr-', 'pr')
                     echo "Deploying to branch: ${env.BRANCH_NAME} on ports ${env.FRONTEND_PORT}/${env.BACKEND_PORT}"
-                    sh "FRONTEND_PORT=${env.FRONTEND_PORT} BACKEND_PORT=${env.BACKEND_PORT} BRANCH_NAME=${env.BRANCH_NAME} docker-compose -p aceest-${env.BRANCH_NAME} up -d --build"
+                    sh "FRONTEND_PORT=${env.FRONTEND_PORT} BACKEND_PORT=${env.BACKEND_PORT} BRANCH_NAME=${cleanBranch} docker-compose -p aceest-${cleanBranch} up -d --build"
                 }
             }
         }
