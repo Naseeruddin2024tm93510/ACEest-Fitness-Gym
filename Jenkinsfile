@@ -45,7 +45,7 @@ pipeline {
             steps {
                 script {
                     echo "Deploying to branch: ${env.BRANCH_NAME} on ports ${env.FRONTEND_PORT}/${env.BACKEND_PORT}"
-                    sh "docker-compose -p aceest-${env.BRANCH_NAME} up -d --build"
+                    sh "FRONTEND_PORT=${env.FRONTEND_PORT} BACKEND_PORT=${env.BACKEND_PORT} BRANCH_NAME=${env.BRANCH_NAME} docker-compose -p aceest-${env.BRANCH_NAME} up -d --build"
                 }
             }
         }
