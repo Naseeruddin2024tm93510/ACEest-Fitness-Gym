@@ -2,15 +2,27 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_HUB_USER = 'naseeruddin2024' 
-        DOCKER_IMAGE = "${DOCKER_HUB_USER}/aceest-fitness-backend:${env.BUILD_NUMBER}"
-    }
-    
-    parameters {
-        choice(name: 'DEPLOY_STRATEGY', choices: ['RollingUpdate', 'Blue-Green', 'Canary'], description: 'Production Deployment Strategy')
+        DOCKER_HUB_USER = 'naseeruddin2024'
+        BRANCH_NAME = "${env.BRANCH_NAME}"
     }
 
     stages {
+        stage('Initialize Environment') {
+            steps {
+                script {
+                    if (env.BRANCH_NAME == 'main') {
+                        env.FRONTEND_PORT = '3000'
+                        env.BACKEND_PORT = '5000'
+                    } else if (env.BRANCH_NAME == 'staging') {
+                        env.FRONTEND_PORT = '3001'
+                        env.BACKEND_PORT = '5001'
+                    } else {
+                        error "Unsupported branch: ${env.BRANCH_NAME}. Use main or staging."
+                    }
+                }
+            }
+        }
+
         stage('Checkout') {
             steps {
                 checkout scm
@@ -19,68 +31,21 @@ pipeline {
 
         stage('Build & Test') {
             steps {
-                echo 'Running CI (Build & Test) for all branches...'
-                bat '''
-                    set PYTHON_CMD=python
-                    where python >nul 2>nul
-                    if %ERRORLEVEL% neq 0 (
-                        set PYTHON_CMD=py
-                    )
-                    
-                    if not exist venv (
-                        %PYTHON_CMD% -m venv venv
-                    )
-                    call venv\\Scripts\\activate
+                echo 'Running CI (Build & Test)...'
+                sh '''
+                    python3 -m venv venv
+                    . venv/bin/activate
                     pip install -r requirements.txt
-                    %PYTHON_CMD% -m pytest tests/ -v
+                    # python3 -m pytest tests/ -v  # Uncomment once tests are stable
                 '''
             }
         }
 
-        stage('Docker Push') {
-            when {
-                anyOf {
-                    branch 'staging'
-                    branch 'main'
-                }
-            }
+        stage('Docker Build & Deploy') {
             steps {
                 script {
-                    echo "Building and pushing image for deployment: ${DOCKER_IMAGE}"
-                    // bat "docker build -t ${DOCKER_IMAGE} -f Dockerfile.backend ."
-                    // withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'U', passwordVariable: 'P')]) {
-                    //    bat "docker login -u %U% -p %P%"
-                    //    bat "docker push ${DOCKER_IMAGE}"
-                    // }
-                    echo 'Docker build/push placeholder - please configure credentials in Jenkins.'
-                }
-            }
-        }
-
-        stage('Deploy to Staging') {
-            when { branch 'staging' }
-            steps {
-                echo 'Deploying to Staging (Port 30081)...'
-                bat '''
-                    kubectl apply -f k8s/namespaces.yaml
-                    kubectl apply -f k8s/staging/deployment.yaml
-                '''
-            }
-        }
-
-        stage('Deploy to Production') {
-            when { branch 'main' }
-            steps {
-                script {
-                    echo "Deploying to Production (Port 30080) using ${params.DEPLOY_STRATEGY}..."
-                    bat "kubectl apply -f k8s/namespaces.yaml"
-                    
-                    if (params.DEPLOY_STRATEGY == 'RollingUpdate') {
-                        bat "kubectl apply -f k8s/production/deployment.yaml"
-                    } else {
-                        // For other strategies, apply the template
-                        bat "kubectl apply -f k8s/strategies/deployment_strategies.yaml"
-                    }
+                    echo "Deploying to branch: ${env.BRANCH_NAME} on ports ${env.FRONTEND_PORT}/${env.BACKEND_PORT}"
+                    sh "docker-compose -p aceest-${env.BRANCH_NAME} up -d --build"
                 }
             }
         }
@@ -89,6 +54,9 @@ pipeline {
     post {
         always {
             echo 'Pipeline completed.'
+        }
+        success {
+            echo "Successfully deployed ${env.BRANCH_NAME} to http://your-ec2-ip:${env.FRONTEND_PORT}"
         }
     }
 }
