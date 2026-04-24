@@ -13,7 +13,7 @@ pipeline {
                     if (env.BRANCH_NAME == 'main') {
                         env.FRONTEND_PORT = '3000'
                         env.BACKEND_PORT = '5000'
-                    } else if (env.BRANCH_NAME == 'staging' || env.BRANCH_NAME == 'develop') {
+                    } else if (env.BRANCH_NAME == 'staging' || env.BRANCH_NAME == 'develop' || env.BRANCH_NAME.startsWith('PR-')) {
                         env.FRONTEND_PORT = '3001'
                         env.BACKEND_PORT = '5001'
                     } else {
