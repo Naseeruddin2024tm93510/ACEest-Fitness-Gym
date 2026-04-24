@@ -46,7 +46,7 @@ pipeline {
                 echo 'Running Static Code Analysis...'
                 withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
                     sh "sonar-scanner \
-                        -Dsonar.projectKey=aceest-fitness \
+                        -Dsonar.projectKey=ACEest-fitness \
                         -Dsonar.sources=. \
                         -Dsonar.host.url=http://localhost:9000 \
                         -Dsonar.login=${SONAR_TOKEN}"
