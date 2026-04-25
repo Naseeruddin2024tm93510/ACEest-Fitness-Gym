@@ -1,0 +1,405 @@
+﻿
+> ## 8. DevOps & CI/CD Pipeline
+  
+  ### 8.1 Source Control Strategy (GitFlow)
+  
+  ```
+  main        â† Production-ready code. Protected. Only merged from develop.
+  develop     â† Integration branch. All feature work merges here.
+  feature/*   â† Individual feature branches (branched from develop)
+  bugfix/*    â† Bug fix branches (branched from develop)
+  hotfix/*    â† Emergency production fixes (branched from main)
+  ```
+  
+  **Active remote branches:**
+  - `origin/main`
+  - `origin/develop`
+  - `origin/feature/client-api`
+  - `origin/feature/frontend-ui`
+  - `origin/feature/testing`
+  - `origin/bugfix/login-error`
+  - `origin/hotfix/payment-crash`
+  
+  ---
+  
+  ### 8.2 Jenkins Pipeline (Primary CI/CD)
+  
+  **Location:** `Jenkinsfile` (project root)
+  **Trigger:** Poll SCM every minute (`* * * * *`)
+  **Jenkins URL:** `http://localhost:8085`
+  
+  ```
+  â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
+  â•‘           JENKINS CI/CD PIPELINE                         â•‘
+  â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â
+•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•£
+  â•‘                                                          â•‘
+  â•‘  Stage 1: Checkout                                       â•‘
+  â•‘  â””â”€ git checkout from GitHub (main or develop branch)   â•‘
+  â•‘                                                          â•‘
+  â•‘  Stage 2: Setup Backend & Test                           â•‘
+  â•‘  â”œâ”€ Create Python venv (cached if exists)               â•‘
+  â•‘  â”œâ”€ pip install -r requirements.txt                     â•‘
+  â•‘  â””â”€ pytest tests/ -v (47 unit tests)                    â•‘
+  â•‘                                                          â•‘
+  â•‘  Stage 3: Verify Docker Build                            â•‘
+  â•‘  â””â”€ docker-compose build --parallel (BuildKit enabled)  â•‘
+  â•‘                                                          â•‘
+  â•‘  Stage 4: Deploy to AWS EC2 [main branch ONLY]           â•‘
+  â•‘  â”œâ”€ â¸ Manual Approval Gate                              â•‘
+  â•‘  â”‚    "Deploy to Production?" â†’ Approve / Abort         â•‘
+  â•‘  â””â”€ SSH â†’ EC2 â†’ git pull â†’ docker-compose up --build   â•‘
+  â•‘                                                          â•‘
+  â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â
+•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•£
+  â•‘  develop branch â†’ Stages 1â€“3 only (CI only)             â•‘
+  â•‘  main branch    â†’ Stages 1â€“4 (CI + CD with approval)    â•‘
+  â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  ```
+  
+  **Jenkins Credentials Required:**
+  - `ec2-ssh-key` â†’ SSH Username with private key (EC2 `.pem` file)
+  
+  ---
+  
+  ### 8.3 GitHub Actions Pipeline (Secondary Validation)
+  
+  **Location:** `.github/workflows/main.yml`
+  **Trigger:** On every `push` or `pull_request` to `main` or `develop`
+  **Runs on:** `ubuntu-latest` (GitHub-hosted runner)
+  
+  ```yaml
+  Jobs:
+    build-and-test:
+      1. Checkout Code
+      2. Setup Python 3.10
+      3. Install dependencies (flake8, pytest, requirements.txt)
+      4. Lint: flake8 app/ tests/ (E9, F63, F7, F82 â†’ build-breaking errors)
+      5. Docker Image Assembly: docker compose build
+      6. Run Tests in Container: docker compose run --rm backend pytest tests/ -v
+  
+    deploy:
+      needs: build-and-test          # Only runs if tests pass
+      if: branch == 'main'           # Only deploys from main
+      â†’ SSH to EC2, git pull, docker-compose up --build -d
+  ```
+  
+  ---
+  
+  ### 8.4 CI/CD Flow Diagram
+  
+  ```
+  Developer writes code
+          â”‚
+  git push origin develop
+          â”‚
+          â”œâ”€â”€â”€â”€ GitHub Actions triggers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â–º
+          â”‚     (Lint â†’ Docker Build â†’ Test in container)
+          â”‚     PASS âœ… or FAIL âŒ
+          â”‚
+          â””â”€â”€â”€â”€ Jenkins detects (Poll SCM, 1-min interval)
+                (Checkout â†’ Test â†’ Docker Build)
+                [Deploy stage SKIPPED for develop]
+                PASS âœ… or FAIL âŒ
+                        â”‚
+                        â”‚ (code reviewed, team approves)
+                        â–¼
+                git merge develop â†’ main
+                        â”‚
+                Jenkins detects main branch change
+                (Checkout â†’ Test â†’ Docker Build)
+                        â”‚
+                        â–¼
+                â¸ Manual Approval in Jenkins UI
+                "Deploy to Production?"
+                        â”‚
+                [APPROVED] 
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â–º
+                                                      SSH into EC2
+                                                      git pull origin main
+                                                      docker-compose down
+                                                      docker-compose up --build -d
+                                                      âœ… LIVE ON AWS EC2
+  ```
+  
+  ---
+  
+  ## 9. Infrastructure & Deployment
+  
+  ### 9.1 Production Environment
+  
+  | Property | Value |
+  |---|---|
+  | Cloud Provider | AWS EC2 |
+  | Instance Type | t2.micro (or equivalent) |
+  | OS | Amazon Linux 2023 |
+  | Public IP | `16.16.56.150` |
+  | Frontend URL | `http://16.16.56.150:3000` |
+  | Backend API URL | `http://16.16.56.150:5000` |
+  
+  ### 9.2 Required Security Group Rules
+  
+  | Port | Protocol | Source | Purpose |
+  |---|---|---|---|
+  | 22 | TCP | Admin IP only | SSH access |
+  | 3000 | TCP | `0.0.0.0/0` | Frontend web access |
+  | 5000 | TCP | `0.0.0.0/0` | Backend API access |
+  
+  ### 9.3 File Structure
+  
+  ```
+  ACEest-Fitness-Gym/
+  â”œâ”€â”€ app/                          # Flask application
+  â”‚   â”œâ”€â”€ __init__.py               # Flask app factory, blueprint registration
+  â”‚   â”œâ”€â”€ api/
+  â”‚   â”‚   â”œâ”€â”€ auth_routes.py        # Login + Registration endpoints
+  â”‚   â”‚   â”œâ”€â”€ client_routes.py      # Client-facing endpoints
+  â”‚   â”‚   â”œâ”€â”€ trainer_routes.py     # Trainer endpoints
+  â”‚   â”‚   â””â”€â”€ admin_routes.py       # Admin management endpoints
+  â”‚   â”œâ”€â”€ models/
+  â”‚   â”‚   â””â”€â”€ schema.sql            # Database schema (CREATE IF NOT EXISTS)
+  â”‚   â”œâ”€â”€ repository/               # Data access layer
+  â”‚   â””â”€â”€ utils/
+  â”‚       â””â”€â”€ db.py                 # DB connection, init_db(), DB_DIR env var
+  â”œâ”€â”€ frontend/                     # React SPA
+  â”‚   â”œâ”€â”€ src/
+  â”‚   â”‚   â”œâ”€â”€ pages/
+  â”‚   â”‚   â”‚   â”œâ”€â”€ Landing.jsx       # Landing page with hero section
+  â”‚   â”‚   â”‚   â”œâ”€â”€ Login.jsx         # Unified login page (Admin/Client/Trainer)
+  â”‚   â”‚   â”‚   â”œâ”€â”€ Register.jsx      # Client registration
+  â”‚   â”‚   â”‚   â”œâ”€â”€ TrainerRegister.jsx # Trainer registration
+  â”‚   â”‚   â”‚   â”œâ”€â”€ AdminDashboard.jsx  # Admin control panel
+  â”‚   â”‚   â”‚   â”œâ”€â”€ TrainerDashboard.jsx # Trainer management panel
+  â”‚   â”‚   â”‚   â””â”€â”€ ClientDashboard.jsx  # Client view (plans, progress, requests)
+  â”‚   â”‚   â”œâ”€â”€ api.js               # Centralized API call functions
+  â”‚   â”‚   â”œâ”€â”€ App.jsx              # React Router configuration
+  â”‚   â”‚   â””â”€â”€ main.jsx             # Entry point
+  â”‚   â”œâ”€â”€ package.json
+  â”‚   â””â”€â”€ vite.config.js
+  â”œâ”€â”€ tests/                        # Pytest unit test suite
+  â”‚   â”œâ”€â”€ conftest.py               # Shared fixtures (isolated temp DB)
+  â”‚   â”œâ”€â”€ test_auth.py              # Authentication tests (12 tests)
+  â”‚   â”œâ”€â”€ test_client_api.py        # Client API tests (9 tests)
+  â”‚   â”œâ”€â”€ test_trainer_api.py       # Trainer API tests (16 tests)
+  â”‚   â””â”€â”€ test_admin_api.py         # Admin API tests (10 tests)
+  â”œâ”€â”€ Dockerfile.backend            # Backend container build
+  â”œâ”€â”€ Dockerfile.frontend           # Frontend multi-stage build
+  â”œâ”€â”€ docker-compose.yml            # Orchestration config
+  â”œâ”€â”€ nginx.conf                    # Nginx reverse proxy config
+  â”œâ”€â”€ Jenkinsfile                   # Jenkins declarative pipeline
+  â”œâ”€â”€ .github/workflows/main.yml    # GitHub Actions workflow
+  â”œâ”€â”€ requirements.txt              # Python dependencies
+  â”œâ”€â”€ pytest.ini                    # Pytest configuration
+  â”œâ”€â”€ .dockerignore                 # Docker build exclusions
+  â””â”€â”€ run.py                        # Flask entry point
+  ```
+  
+  ---
+  
+  ## 10. Security Considerations
+  
+  > **Note:** The current implementation uses session-based authentication suitable for an academic/prototype 
+deployment. For full production hardening, the following upgrades are recommended.
+  
+  ### Current Implementation
+  - Passwords stored as plain text in the database
+  - Role verification is client-driven (trust role from login response)
+  - Sessions maintained via Flask's cookie-based session store
+  
+  ### Recommended Production Upgrades
+  
+  | Area | Current | Recommended |
+  |---|---|---|
+  | Authentication | Plain text passwords | bcrypt hashing |
+  | Authorization | Client-side role | JWT tokens with server-side verification |
+  | Database | SQLite | PostgreSQL with connection pooling |
+  | HTTPS | Not configured | SSL/TLS via Nginx + Let's Encrypt |
+  | Secrets | Hardcoded | AWS Secrets Manager / Jenkins Credentials |
+  | Session | Cookie-based | Stateless JWT / Redis session store |
+  
+  ---
+  
+  ## 11. Testing Strategy
+  
+  ### 11.1 Unit Test Coverage
+  
+  The project maintains a suite of **47 automated unit tests** using `pytest`. Each test runs against a completely 
+isolated, temporary SQLite database (via `pytest` fixtures in `conftest.py`).
+  
+  | Test File | Class | Tests | Coverage Area |
+  |---|---|---|---|
+  | `test_auth.py` | `TestAdminLogin` | 4 | Admin login success/failure |
+  | | `TestClientRegistration` | 4 | Client register/login/duplicate |
+  | | `TestTrainerRegistration` | 3 | Trainer register/login/missing fields |
+  | `test_admin_api.py` | `TestAdminCreateTrainer` | 1 | Create trainer via admin |
+  | | `TestAdminPendingRegistrations` | 1 | List pending clients |
+  | | `TestAdminAssignTrainer` | 1 | Approve client & assign trainer |
+  | | `TestAdminChangeRequests` | 1 | Approve trainer change |
+  | | `TestAdminPlanRequests` | 2 | Approve/reject plan change |
+  | | `TestAdminEditClient` | 1 | Edit any client profile |
+  | | `TestAdminEditTrainer` | 1 | Edit any trainer profile |
+  | | `TestAdminReactivate` | 1 | Reactivate inactive member |
+  | | `TestAdminWorkoutDiet` | 3 | Admin adds workout/diet/progress |
+  | `test_client_api.py` | `TestClientList` | 2 | List clients |
+  | | `TestClientDetail` | 2 | Get client profile |
+  | | `TestClientProfile` | 1 | Update own profile |
+  | | `TestClientFeedback` | 1 | Submit feedback |
+  | | `TestClientProgress` | 1 | Log progress |
+  | | `TestClientPlanChange` | 1 | Request plan change |
+  | | `TestClientTrainerChange` | 1 | Request trainer change |
+  | `test_trainer_api.py` | `TestTrainerList` | 2 | List/detail trainers |
+  | | `TestTrainerClients` | 1 | Get assigned clients |
+  | | `TestWorkoutCRUD` | 3 | Add/Update/Delete workout |
+  | | `TestDietCRUD` | 3 | Add/Update/Delete diet |
+  | | `TestTrainerProgressLog` | 1 | Log client progress |
+  | | `TestTrainerFeedback` | 1 | Send feedback |
+  | | `TestInactiveClientBlocking` | 4 | 403 enforcement for inactive clients |
+  
+  ### 11.2 Running Tests
+  
+  ```bash
+  # Local development
+  python -m pytest tests/ -v
+  
+  # With coverage report
+  python -m pytest tests/ -v --cov=app --cov-report=html
+  
+  # Run a specific test file
+  python -m pytest tests/test_auth.py -v
+  
+  # Run inside Docker container (CI mode)
+  docker compose run --rm backend pytest tests/ -v
+  ```
+  
+  ### 11.3 Test Isolation Architecture
+  
+  ```python
+  # conftest.py â€” Every test gets its own fresh database
+  @pytest.fixture(autouse=True)
+  def isolate_db(tmp_path):
+      original_name = db_module.DB_NAME
+      db_module.DB_NAME = str(tmp_path / "test_fitness.db")
+      db_module.init_db()
+      yield
+      db_module.DB_NAME = original_name
+  ```
+  
+  ---
+  
+  ## 12. Operational Runbook
+  
+  ### 12.1 Starting the Application
+  
+  ```bash
+  # First time / full rebuild
+  docker compose up --build -d
+  
+  # Subsequent starts (using cached images)
+  docker compose up -d
+  ```
+  
+  ### 12.2 Stopping the Application
+  
+  ```bash
+  # Stop containers (DATA IS PRESERVED)
+  docker compose down
+  
+  # Stop containers AND delete database volume (DATA IS LOST)
+  docker compose down -v    âš ï¸ WARNING: Destroys all data
+  ```
+  
+  ### 12.3 Viewing Logs
+  
+  ```bash
+  # All containers
+  docker compose logs -f
+  
+  # Backend only
+  docker compose logs -f backend
+  
+  # Frontend only
+  docker compose logs -f frontend
+  ```
+  
+  ### 12.4 Accessing the Application
+  
+  | Environment | URL |
+  |---|---|
+  | Local development | `http://localhost:3000` |
+  | Production (AWS EC2) | `http://16.16.56.150:3000` |
+  | Backend API (Local) | `http://localhost:5000` |
+  | Backend API (AWS) | `http://16.16.56.150:5000` |
+  
+  ### 12.5 Default Admin Credentials
+  
+  ```
+  Username: admin
+  Password: admin
+  Role:     Admin
+  ```
+  > âš ï¸ **Change this immediately in production** by updating the seed in `schema.sql`.
+  
+  ### 12.6 Deploying a New Version
+  
+  ```bash
+  # On EC2 server
+  cd ACEest-Fitness-Gym
+  git pull origin main
+  docker compose down
+  docker compose up --build -d
+  docker compose ps    # Verify both containers are 'Up'
+  ```
+  
+  ### 12.7 Reclaiming Disk Space (Docker Cleanup)
+  
+  ```bash
+  # Remove unused images, containers, and networks (keeps volumes)
+  docker system prune -a -f
+  
+  # Check Docker disk usage
+  docker system df
+  ```
+  
+  ### 12.8 Database Backup
+  
+  ```bash
+  # On EC2 server â€” backup the SQLite database
+  docker compose exec backend cp /data/fitness.db /data/fitness_backup_$(date +%Y%m%d).db
+  
+  # Copy backup to local machine
+  scp -i your-key.pem ec2-user@16.16.56.150:/data/fitness_backup_*.db ./backups/
+  ```
+  
+  ---
+  
+  ## Appendix A: Environment Variables
+  
+  | Variable | Default | Container | Description |
+  |---|---|---|---|
+  | `DB_DIR` | `/data` | backend | Directory where SQLite DB file is stored |
+  | `FLASK_ENV` | `production` | backend | Flask running environment |
+  
+  ---
+  
+  ## Appendix B: Dependency List
+  
+  ```
+  Flask==2.3.2
+  Werkzeug<3.0.0
+  flask-cors==4.0.0
+  pytest==7.4.0
+  pytest-cov==4.1.0
+  flake8==7.3.0
+  autopep8==2.3.1
+  matplotlib
+  fpdf
+  ```
+  
+  ---
+  
+  *This document is maintained by the ACEest DevOps & Engineering Team. For issues or contributions, raise a pull 
+request against the `develop` branch in the GitHub repository.*
+
+
