@@ -1,4 +1,4 @@
-from flask import Flask, send_from_directory
+from flask import Flask, send_from_directory, jsonify
 from flask_cors import CORS
 import os
 from app.utils.db import init_db
@@ -19,6 +19,11 @@ def create_app():
     app.register_blueprint(client_bp, url_prefix="/api/clients")
     app.register_blueprint(trainer_bp, url_prefix="/api/trainers")
     app.register_blueprint(admin_bp, url_prefix="/api/admin")
+
+    # Health check endpoint for Kubernetes readiness/liveness probes
+    @app.route("/health")
+    def health_check():
+        return jsonify({"status": "healthy", "app": "ACEest Fitness & Gym"}), 200
 
     # Serve React build
     frontend_dir = os.path.join(app.root_path, '..', 'frontend')
