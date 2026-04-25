@@ -1,0 +1,157 @@
+# =============================================================================
+# STRATEGY 4: A/B Testing Deployment
+# =============================================================================
+# Routes traffic based on HTTP headers to different versions.
+# Allows testing new features with specific user segments.
+#
+# How it works:
+#   1. Version A serves all regular users
+#   2. Version B serves users with header: X-User-Type: beta-tester
+#   3. Requires NGINX Ingress Controller for header-based routing
+#
+# Test Version B:
+#   curl -H "X-User-Type: beta-tester" http://your-cluster-ip/
+#
+# Rollback:
+#   kubectl delete ingress aceest-fitness-ab -n production
+#   kubectl delete deployment aceest-fitness-version-b -n production
+# =============================================================================
+
+# --- Version A (Default — all regular users) ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aceest-fitness-version-a
+  namespace: production
+  labels:
+    app: aceest-fitness
+    version: a
+    strategy: ab-testing
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: aceest-fitness
+      version: a
+  template:
+    metadata:
+      labels:
+        app: aceest-fitness
+        version: a
+    spec:
+      containers:
+      - name: backend
+        image: naseeruddin786/aceest-backend:main-stable
+        ports:
+        - containerPort: 5000
+        env:
+        - name: DB_DIR
+          value: "/data"
+
+---
+# --- Version B (Beta testers only) ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aceest-fitness-version-b
+  namespace: production
+  labels:
+    app: aceest-fitness
+    version: b
+    strategy: ab-testing
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aceest-fitness
+      version: b
+  template:
+    metadata:
+      labels:
+        app: aceest-fitness
+        version: b
+    spec:
+      containers:
+      - name: backend
+        image: naseeruddin786/aceest-backend:main-latest
+        ports:
+        - containerPort: 5000
+        env:
+        - name: DB_DIR
+          value: "/data"
+
+---
+# --- Service for Version A ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aceest-fitness-service-a
+  namespace: production
+spec:
+  ports:
+  - port: 80
+    targetPort: 5000
+  selector:
+    app: aceest-fitness
+    version: a
+
+---
+# --- Service for Version B ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aceest-fitness-service-b
+  namespace: production
+spec:
+  ports:
+  - port: 80
+    targetPort: 5000
+  selector:
+    app: aceest-fitness
+    version: b
+
+---
+# --- Default Ingress (Version A for all users) ---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aceest-fitness-default
+  namespace: production
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: aceest.fitness.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: aceest-fitness-service-a
+            port:
+              number: 80
+
+---
+# --- A/B Ingress (Version B for beta testers via header) ---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aceest-fitness-ab
+  namespace: production
+  annotations:
+    nginx.ingress.kubernetes.io/canary: "true"
+    nginx.ingress.kubernetes.io/canary-by-header: "X-User-Type"
+    nginx.ingress.kubernetes.io/canary-by-header-value: "beta-tester"
+spec:
+  rules:
+  - host: aceest.fitness.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: aceest-fitness-service-b
+            port:
+              number: 80
