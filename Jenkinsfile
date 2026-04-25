@@ -43,9 +43,16 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                echo 'Running Static Code Analysis...'
-                // Assumes SonarQube is running on port 9000
-                sh 'echo "SonarQube analysis placeholder - Scanner would run here"'
+                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                    echo 'Running Static Code Analysis...'
+                    withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                        sh "sonar-scanner \
+                            -Dsonar.projectKey=ACEest-fitness \
+                            -Dsonar.sources=app/ \
+                            -Dsonar.host.url=http://localhost:9000 \
+                            -Dsonar.token=${SONAR_TOKEN}"
+                    }
+                }
             }
         }
 
