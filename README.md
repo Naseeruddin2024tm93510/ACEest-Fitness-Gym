@@ -1,195 +1,100 @@
-# ACEest Fitness & Gym — Industry-Grade CI/CD & Kubernetes Platform
+# ACEest Fitness & Gym — Full-Stack DevOps Implementation
 
-**Version:** 2.5.0 (Assignment 2) | **Last Updated:** April 2026 | **Classification:** Production / DevOps Showcase
-
----
-
-## 🚀 NEW: Assignment 2 Capabilities
-This platform has been upgraded from a basic containerized app to a **Next-Gen DevOps Ecosystem**.
-- ✅ **Advanced CI/CD:** Fully automated multi-branch Jenkins pipeline.
-- ✅ **Static Analysis:** Integrated SonarQube Quality Gates (A-Rating).
-- ✅ **Orchestration:** Kubernetes (Minikube) deployment with self-healing.
-- ✅ **Deployment Strategies:** Production-ready Rolling Updates, Blue-Green, Canary, and Shadow deployments.
-- ✅ **Automated Rollbacks:** 1-command reversion and failure-triggered auto-rollback.
+**Version:** 2.5.0 | **Author:** Naseeruddin | **Status:** Production Ready
 
 ---
 
-## Table of Contents
+## 📑 Project Structure: Assignment 1 vs Assignment 2
 
-1. [Executive Summary](#1-executive-summary)
-2. [System Architecture](#2-system-architecture)
-3. [Technology Stack](#3-technology-stack)
-4. [User Roles & Access Control](#4-user-roles--access-control)
-5. [Database Schema](#5-database-schema)
-6. [Multi-Environment Architecture](#6-multi-environment-architecture)
-7. [Advanced CI/CD Pipeline (Jenkins)](#7-advanced-cicd-pipeline-jenkins)
-8. [Kubernetes Orchestration & Strategies](#8-kubernetes-orchestration--strategies)
-9. [Rollback & Disaster Recovery](#9-rollback--disaster-recovery)
-10. [SonarQube Quality Assurance](#10-sonarqube-quality-assurance)
-11. [Testing Strategy (Pytest)](#11-testing-strategy)
-12. [Operational Runbook](#12-operational-runbook)
+This project has evolved in two distinct phases as per the academic requirements:
 
----
+### [Phase 1: Application & Containerization (Assignment 1)](#part-1-assignment-1)
+- **Foundational Development:** Flask Backend + React Frontend.
+- **Data Architecture:** SQLite persistence.
+- **Containerization:** Dockerization of frontend and backend.
+- **Basic Orchestration:** Docker Compose for local/cloud hosting.
 
-## 1. Executive Summary
-
-**ACEest Fitness & Gym** is a full-stack, enterprise-grade gym management platform. While Assignment 1 focused on the application architecture and basic containerization, **Assignment 2** transforms it into a robust, automated delivery system. 
-
-It implements a complete DevOps lifecycle: from structured Git versioning and automated testing to static code analysis, Docker versioning, and Kubernetes orchestration. The system ensures zero-downtime deployments and maintains high code quality standards through automated quality gates.
+### [Phase 2: Advanced CI/CD & Kubernetes (Assignment 2)](#part-2-assignment-2)
+- **CI/CD Pipeline:** Multi-branch Jenkins Declarative Pipeline.
+- **Testing:** 47 Pytest automated test cases.
+- **Quality Gates:** SonarQube static code analysis.
+- **Registry:** Docker Hub versioned image management.
+- **Orchestration:** Kubernetes (Minikube) deployment.
+- **Advanced Strategies:** Blue-Green, Canary, Shadow, A/B, and Rolling Updates.
+- **Self-Healing:** Automated rollbacks and pod recovery.
 
 ---
 
-## 2. System Architecture
+## Part 1: Assignment 1 — Core Platform & Dockerization
 
-### 2.1 DevOps Workflow (End-to-End)
+### 1.1 Application Architecture
+ACEest Fitness is built on a decoupled architecture:
+- **Backend:** Flask REST API providing membership management, workout planning, and progress tracking.
+- **Frontend:** React SPA providing a responsive dashboard for Admins, Trainers, and Clients.
 
-```mermaid
-graph TD
-    A[Developer Push] -->|Git| B(GitHub)
-    B -->|Webhook| C(Jenkins CI/CD)
-    C --> D{Build & Test}
-    D -->|Pytest| E[47 Unit Tests]
-    E --> F[SonarQube Analysis]
-    F -->|Quality Gate| G[Docker Build & Push]
-    G -->|Registry| H(Docker Hub)
-    H --> I[Docker Compose Deploy]
-    H --> J[Kubernetes Deploy]
-    J --> K{Status Check}
-    K -->|Success| L[Healthy Production]
-    K -->|Failure| M[Auto-Rollback]
-```
+### 1.2 Containerization
+- **Backend Dockerfile:** Optimised Python 3.10-slim image.
+- **Frontend Dockerfile:** Multi-stage build using Node 22 for compilation and Nginx-Alpine for serving.
+- **Docker Compose:** Orchestrates the services and manages the `db-data` volume for persistence.
 
-### 2.2 Container Architecture
-The platform uses two core service containers:
-- **`aceest-backend`**: Flask REST API (Python 3.10) + SQLite persistence.
-- **`aceest-frontend`**: React SPA served via Nginx (optimised multi-stage build).
+### 1.3 Baseline Deployment
+Initial deployment was achieved on AWS EC2 using a "Recreate" strategy via Docker Compose on port 3000.
 
 ---
 
-## 3. Technology Stack
+## Part 2: Assignment 2 — Advanced DevOps & K8s
 
-| Layer | Technology | Purpose |
-|---|---|---|
-| **SCM** | Git / GitHub | Multi-branch version control |
-| **CI Server** | Jenkins | Declarative Pipeline automation |
-| **Backend** | Flask (Python) | Core business logic & API |
-| **Frontend** | React / Vite | User Interface |
-| **QA** | Pytest | 47 unit tests for logic validation |
-| **Static Analysis** | SonarQube | Automated code quality auditing |
-| **Registry** | Docker Hub | Versioned container image storage |
-| **Orchestration** | Minikube / K8s | Container scaling & self-healing |
-| **Environment** | AWS EC2 | Cloud infrastructure (Amazon Linux 2023) |
+### 2.1 Multi-Branch Jenkins Pipeline
+The core of Part 2 is the `Jenkinsfile` which automates everything.
+- **`develop` branch:** Continuous Integration (Build + Test + SonarQube).
+- **`staging` & `main` branches:** Full CI/CD (Build + Test + SonarQube + Docker Push + K8s Deploy).
 
----
+### 2.2 SonarQube Quality Integration
+Integrated SonarQube to ensure code health. 
+- **Metrics:** 0 Bugs, 0 Vulnerabilities, 0 Smells.
+- **Outcome:** Quality Gate PASSED.
 
-## 6. Multi-Environment Architecture
+### 2.3 Kubernetes Orchestration (Minikube)
+Transitioned from simple containers to a resilient cluster.
+- **Resilience:** 3 replicas running in the `production` namespace.
+- **Persistence:** K8s PersistentVolumeClaims (PVC) for data safety.
+- **Self-Healing:** K8s automatically restarts pods if they crash.
 
-The system supports branch-isolated environments to prevent resource collisions:
+### 2.4 Deployment Methodologies
+Implemented in `k8s/strategies/`:
+1.  **Rolling Update:** Zero-downtime sequential updates.
+2.  **Blue-Green:** Instant traffic switching between two environments.
+3.  **Canary:** Testing version 2.0 with 10% of users.
+4.  **Shadow:** Mirroring live traffic to a test version.
+5.  **A/B Testing:** Header-based feature validation.
 
-| Branch | Environment | Ports | K8s Namespace |
-|---|---|---|---|
-| `main` | Production | 3000 / 5000 | `production` |
-| `staging` | Pre-Prod | 3001 / 5001 | `staging` |
-| `develop` | Integration | 3001 / 5001 | `default` |
-
----
-
-## 7. Advanced CI/CD Pipeline (Jenkins)
-
-Our `Jenkinsfile` implements a robust 7-stage pipeline:
-
-1. **Initialize:** Sets environment variables and ports based on branch name.
-2. **Checkout:** Pulls latest code from GitHub.
-3. **Build & Test:** Creates a venv and executes **47 Pytest cases**.
-4. **SonarQube:** Performs static analysis and checks against the Quality Gate.
-5. **Docker Build & Push:** Builds images and pushes them to Docker Hub with tags like `main-15` and `main-latest`.
-6. **Docker Compose Deploy:** Immediate deployment to the local EC2 Docker engine.
-7. **Kubernetes Deploy:** Triggers a **Rolling Update** in the Minikube cluster with automatic health verification.
-
----
-
-## 8. Kubernetes Orchestration & Strategies
-
-### 8.1 Active Strategy: Rolling Update
-By default, the production deployment in `k8s/production/deployment.yaml` uses a **Rolling Update** strategy:
-- `maxSurge: 1`: Adds one new pod before removing old ones.
-- `maxUnavailable: 0`: Ensures zero-downtime by keeping all minimum replicas alive.
-
-### 8.2 Available Methodologies (in `k8s/strategies/`)
-We have implemented and documented 5 major deployment strategies:
-- **Blue-Green:** Switch traffic between two identical environments via Service selector.
-- **Canary:** Route 10% of traffic to a new version to test stability.
-- **Shadow:** Mirror production traffic to a new version without affecting real users.
-- **A/B Testing:** Header-based routing (e.g., `X-User-Type: beta`) for targeted testing.
-- **Rolling Update:** Sequential pod replacement.
-
----
-
-## 9. Rollback & Disaster Recovery
-
-### 9.1 Automatic Rollback
-If the Kubernetes deployment fails (e.g., timeout or health check failure), Jenkins automatically triggers:
+### 2.5 Automated Rollback Mechanism
+Built-in failure recovery logic:
 ```bash
-kubectl rollout undo deployment/aceest-fitness-backend -n production
-```
-
-### 9.2 Manual Rollback
-If users report issues after a successful deployment, admins can revert instantly:
-```bash
-# Revert to any previous revision
+# Handled automatically by Jenkins on failure or manually via:
 kubectl rollout undo deployment/aceest-fitness-backend -n production
 ```
 
 ---
 
-## 10. SonarQube Quality Assurance
+## 🛠️ Technology Stack Summary
 
-The project maintains an **A-Rating** in SonarQube.
-- **Bugs:** 0
-- **Vulnerabilities:** 0
-- **Code Smells:** 0
-- **Quality Gate:** PASSED
-
-Every commit to `main`, `staging`, or `develop` triggers a fresh scan, ensuring technical debt never accumulates.
-
----
-
-## 11. Testing Strategy (Pytest)
-
-The project includes **47 automated tests** covering:
-- Authentication (Admin/Client/Trainer)
-- Registration flows and duplicates
-- Role-Based Access Control (RBAC) enforcement
-- Membership expiry logic (status changes)
-- Progress logging and feedback systems
-
-Run tests locally:
-```bash
-python3 -m pytest tests/ -v
-```
+| Requirement | Technology Used |
+|---|---|
+| **Version Control** | Git + GitHub |
+| **Build Server** | Jenkins (Declarative) |
+| **Test Framework** | Pytest (47 tests) |
+| **Code Quality** | SonarQube |
+| **Registry** | Docker Hub |
+| **Orchestration** | Minikube / Kubernetes |
+| **Deployment** | Docker Compose + K8s Manifests |
 
 ---
 
-## 12. Operational Runbook
+## 🚀 Access & Verification
+- **Production URL:** `http://16.16.56.150:3000`
+- **Jenkins Pipeline:** `http://16.16.56.150:8080`
+- **SonarQube Dashboard:** `http://16.16.56.150:9000`
+- **Docker Hub Images:** `naseeruddin786/aceest-backend`
 
-### Accessing the System
-- **Frontend (Prod):** `http://16.16.56.150:3000`
-- **Backend (Prod):** `http://16.16.56.150:5000`
-- **Jenkins:** `http://16.16.56.150:8080`
-- **SonarQube:** `http://16.16.56.150:9000`
-- **K8s Dashboard:** `http://16.16.56.150:8001/api/v1/namespaces/kubernetes-dashboard/services/http:kubernetes-dashboard:/proxy/` (via `kubectl proxy`)
-
-### Deployment Status
-```bash
-# Check Docker Containers
-docker ps
-
-# Check K8s Pods
-kubectl get pods -n production
-
-# Check image versions
-kubectl describe deploy -n production | grep Image
-```
-
----
-*Developed for the Introduction to DevOps Assignment (CSIZG514/SEZG514). Produced by Naseeruddin.*
+*Note: For the technical details of Assignment 1 (Schema, API routes), please refer to the history of this README.*
