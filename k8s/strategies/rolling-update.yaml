@@ -1,0 +1,53 @@
+# =============================================================================
+# STRATEGY 1: Rolling Update
+# =============================================================================
+# Gradually replaces old pods with new ones, ensuring zero downtime.
+# This is the DEFAULT strategy used in production/deployment.yaml.
+#
+# How it works:
+#   - maxSurge: 1        → Creates 1 extra pod before removing old ones
+#   - maxUnavailable: 0  → Never takes down a pod until replacement is ready
+#   - Result: Users always have at least 3 pods serving traffic
+#
+# Rollback command:
+#   kubectl rollout undo deployment/aceest-fitness-backend -n production
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aceest-fitness-backend
+  namespace: production
+  labels:
+    app: aceest-fitness
+    strategy: rolling-update
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: aceest-fitness
+      env: production
+  template:
+    metadata:
+      labels:
+        app: aceest-fitness
+        env: production
+    spec:
+      containers:
+      - name: backend
+        image: naseeruddin786/aceest-backend:main-latest
+        ports:
+        - containerPort: 5000
+        env:
+        - name: DB_DIR
+          value: "/data"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 5
