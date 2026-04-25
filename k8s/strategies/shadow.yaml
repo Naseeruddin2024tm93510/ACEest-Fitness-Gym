@@ -1,0 +1,136 @@
+# =============================================================================
+# STRATEGY 5: Shadow Deployment
+# =============================================================================
+# Mirrors production traffic to the new version WITHOUT serving responses
+# to real users. The shadow version processes requests in parallel but its
+# responses are discarded. Used for performance testing and validation.
+#
+# How it works:
+#   1. Production deployment serves all real traffic
+#   2. Shadow deployment receives a copy of all traffic
+#   3. Shadow responses are discarded — users only see production responses
+#   4. Engineers monitor shadow logs/metrics for regressions
+#   5. Requires NGINX Ingress with mirror annotations
+#
+# Monitor shadow logs:
+#   kubectl logs -f deployment/aceest-fitness-shadow -n production
+#
+# Rollback:
+#   kubectl delete deployment aceest-fitness-shadow -n production
+# =============================================================================
+
+# --- Production Deployment (serves real traffic) ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aceest-fitness-production
+  namespace: production
+  labels:
+    app: aceest-fitness
+    track: production
+    strategy: shadow
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: aceest-fitness
+      track: production
+  template:
+    metadata:
+      labels:
+        app: aceest-fitness
+        track: production
+    spec:
+      containers:
+      - name: backend
+        image: naseeruddin786/aceest-backend:main-stable
+        ports:
+        - containerPort: 5000
+        env:
+        - name: DB_DIR
+          value: "/data"
+
+---
+# --- Shadow Deployment (mirrors traffic, responses are discarded) ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aceest-fitness-shadow
+  namespace: production
+  labels:
+    app: aceest-fitness
+    track: shadow
+    strategy: shadow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aceest-fitness
+      track: shadow
+  template:
+    metadata:
+      labels:
+        app: aceest-fitness
+        track: shadow
+    spec:
+      containers:
+      - name: backend
+        image: naseeruddin786/aceest-backend:main-latest
+        ports:
+        - containerPort: 5000
+        env:
+        - name: DB_DIR
+          value: "/data"
+
+---
+# --- Production Service ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aceest-fitness-service
+  namespace: production
+spec:
+  ports:
+  - port: 80
+    targetPort: 5000
+  selector:
+    app: aceest-fitness
+    track: production
+
+---
+# --- Shadow Service (internal only, not exposed to users) ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aceest-fitness-shadow-svc
+  namespace: production
+spec:
+  ports:
+  - port: 80
+    targetPort: 5000
+  selector:
+    app: aceest-fitness
+    track: shadow
+
+---
+# --- Ingress with traffic mirroring to shadow ---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aceest-fitness-mirror
+  namespace: production
+  annotations:
+    nginx.ingress.kubernetes.io/mirror-target: "http://aceest-fitness-shadow-svc.production.svc.cluster.local"
+    nginx.ingress.kubernetes.io/mirror-request-body: "on"
+spec:
+  rules:
+  - host: aceest.fitness.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: aceest-fitness-service
+            port:
+              number: 80

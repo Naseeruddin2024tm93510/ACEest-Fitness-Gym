@@ -1,3 +1,10 @@
+# =============================================================================
+# ACEest Fitness & Gym — Production Deployment (Rolling Update Strategy)
+# =============================================================================
+# Rolling Update: Gradually replaces old pods with new ones.
+# - maxSurge: 1        → At most 1 extra pod during update
+# - maxUnavailable: 0  → Zero downtime guaranteed
+# =============================================================================
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -15,6 +22,10 @@ kind: Deployment
 metadata:
   name: aceest-fitness-backend
   namespace: production
+  labels:
+    app: aceest-fitness
+    env: production
+    version: stable
 spec:
   replicas: 3
   strategy:
@@ -31,10 +42,11 @@ spec:
       labels:
         app: aceest-fitness
         env: production
+        version: stable
     spec:
       containers:
       - name: backend
-        image: ${DOCKER_IMAGE}
+        image: naseeruddin786/aceest-backend:main-latest
         ports:
         - containerPort: 5000
         env:
@@ -44,8 +56,14 @@ spec:
           httpGet:
             path: /health
             port: 5000
-          initialDelaySeconds: 15
+          initialDelaySeconds: 10
           periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
         volumeMounts:
         - name: db-storage
           mountPath: /data

@@ -1,0 +1,114 @@
+# =============================================================================
+# STRATEGY 2: Blue-Green Deployment
+# =============================================================================
+# Maintains two identical environments: BLUE (current) and GREEN (new).
+# Traffic is switched instantly by updating the Service selector.
+#
+# How it works:
+#   1. BLUE deployment serves all production traffic
+#   2. GREEN deployment is created with the new version
+#   3. After testing GREEN, update the Service selector from blue → green
+#   4. If GREEN fails, instantly revert selector back to blue (rollback)
+#
+# Switch to GREEN:
+#   kubectl patch svc aceest-fitness-service -n production \
+#     -p '{"spec":{"selector":{"env":"green"}}}'
+#
+# Rollback to BLUE:
+#   kubectl patch svc aceest-fitness-service -n production \
+#     -p '{"spec":{"selector":{"env":"blue"}}}'
+# =============================================================================
+
+# --- BLUE Deployment (Current Stable Version) ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aceest-fitness-blue
+  namespace: production
+  labels:
+    app: aceest-fitness
+    env: blue
+    strategy: blue-green
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: aceest-fitness
+      env: blue
+  template:
+    metadata:
+      labels:
+        app: aceest-fitness
+        env: blue
+    spec:
+      containers:
+      - name: backend
+        image: naseeruddin786/aceest-backend:main-stable
+        ports:
+        - containerPort: 5000
+        env:
+        - name: DB_DIR
+          value: "/data"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+
+---
+# --- GREEN Deployment (New Version) ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aceest-fitness-green
+  namespace: production
+  labels:
+    app: aceest-fitness
+    env: green
+    strategy: blue-green
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: aceest-fitness
+      env: green
+  template:
+    metadata:
+      labels:
+        app: aceest-fitness
+        env: green
+    spec:
+      containers:
+      - name: backend
+        image: naseeruddin786/aceest-backend:main-latest
+        ports:
+        - containerPort: 5000
+        env:
+        - name: DB_DIR
+          value: "/data"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+
+---
+# --- Service (points to BLUE by default, switch to GREEN for cutover) ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aceest-fitness-service
+  namespace: production
+  labels:
+    strategy: blue-green
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    targetPort: 5000
+    nodePort: 30080
+  selector:
+    app: aceest-fitness
+    env: blue  # Change to 'green' to switch traffic

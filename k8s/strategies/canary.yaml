@@ -1,0 +1,112 @@
+# =============================================================================
+# STRATEGY 3: Canary Deployment
+# =============================================================================
+# Routes a small percentage of traffic (10%) to the new version.
+# If the canary is healthy, gradually increase traffic to 100%.
+#
+# How it works:
+#   1. Stable deployment serves 90% of traffic (3 replicas)
+#   2. Canary deployment serves 10% of traffic (1 replica)
+#   3. Monitor error rates and latency on the canary
+#   4. If healthy: scale canary up, scale stable down
+#   5. If unhealthy: delete canary, stable continues serving 100%
+#
+# Scale up canary:
+#   kubectl scale deployment aceest-fitness-canary -n production --replicas=3
+#
+# Rollback (delete canary):
+#   kubectl delete deployment aceest-fitness-canary -n production
+# =============================================================================
+
+# --- Stable Deployment (receives majority of traffic) ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aceest-fitness-stable
+  namespace: production
+  labels:
+    app: aceest-fitness
+    track: stable
+    strategy: canary
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: aceest-fitness
+      track: stable
+  template:
+    metadata:
+      labels:
+        app: aceest-fitness
+        track: stable
+    spec:
+      containers:
+      - name: backend
+        image: naseeruddin786/aceest-backend:main-stable
+        ports:
+        - containerPort: 5000
+        env:
+        - name: DB_DIR
+          value: "/data"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+
+---
+# --- Canary Deployment (receives ~10% of traffic via replica ratio) ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aceest-fitness-canary
+  namespace: production
+  labels:
+    app: aceest-fitness
+    track: canary
+    strategy: canary
+spec:
+  replicas: 1  # 1 out of 4 total pods = ~25% traffic
+  selector:
+    matchLabels:
+      app: aceest-fitness
+      track: canary
+  template:
+    metadata:
+      labels:
+        app: aceest-fitness
+        track: canary
+    spec:
+      containers:
+      - name: backend
+        image: naseeruddin786/aceest-backend:main-latest
+        ports:
+        - containerPort: 5000
+        env:
+        - name: DB_DIR
+          value: "/data"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+
+---
+# --- Service (routes to BOTH stable and canary via shared app label) ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aceest-fitness-service
+  namespace: production
+  labels:
+    strategy: canary
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    targetPort: 5000
+    nodePort: 30080
+  selector:
+    app: aceest-fitness  # Matches both stable and canary pods
