@@ -48,6 +48,7 @@ pipeline {
                     sh "sonar-scanner \
                         -Dsonar.projectKey=ACEest-fitness \
                         -Dsonar.sources=. \
+                        -Dsonar.exclusions=venv/**,node_modules/**,frontend/node_modules/**,**/conftest.py \
                         -Dsonar.host.url=http://localhost:9000 \
                         -Dsonar.login=${SONAR_TOKEN}"
                 }
