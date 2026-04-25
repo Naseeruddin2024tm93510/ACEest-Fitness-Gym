@@ -49,7 +49,7 @@ pipeline {
                         -Dsonar.projectKey=ACEest-fitness \
                         -Dsonar.sources=app/ \
                         -Dsonar.host.url=http://localhost:9000 \
-                        -Dsonar.login=${SONAR_TOKEN}"
+                        -Dsonar.token=${SONAR_TOKEN}"
                 }
             }
         }
